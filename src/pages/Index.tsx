@@ -8,6 +8,15 @@ import Footer from "@/components/Footer";
 import { Shield, CheckCircle, Lock, Volume2 } from "lucide-react";
 
 const Index = () => {
+  // Function to handle the Make a Report button click in the CTA section
+  const handleMakeReport = () => {
+    // Scroll to the VAPIAgent component
+    const vapiAgentElement = document.getElementById("vapi-agent");
+    if (vapiAgentElement) {
+      vapiAgentElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -26,7 +35,7 @@ const Index = () => {
               Empower voices. Protect truth. Reward integrity.
             </p>
             
-            <div className="my-12">
+            <div id="vapi-agent" className="my-12">
               <VAPIAgent agentId="17195059-600b-4a2e-90b3-ab63c05a6837" />
             </div>
           </div>
@@ -85,6 +94,7 @@ const Index = () => {
                 size="lg" 
                 variant="default"
                 className="bg-white text-aegis-blue hover:bg-gray-100"
+                onClick={handleMakeReport}
               >
                 Make a Report
               </Button>
