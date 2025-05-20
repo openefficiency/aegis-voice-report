@@ -8,24 +8,59 @@ interface VAPIAgentProps {
   agentId: string;
 }
 
+declare global {
+  interface Window {
+    VAPI: any;
+  }
+}
+
 const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const vapiScriptLoaded = useRef(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
   const vapiAgent = useRef<any>(null);
+  const scriptAttempts = useRef(0);
 
-  // Load VAPI script
+  // Load VAPI script with improved error handling
   useEffect(() => {
-    if (!vapiScriptLoaded.current) {
+    const loadVAPIScript = () => {
+      if (window.VAPI) {
+        setScriptLoaded(true);
+        console.log("VAPI already available in window");
+        return;
+      }
+
+      const existingScript = document.querySelector('script[src="https://cdn.vapi.ai/vapi.js"]');
+      if (existingScript) {
+        console.log("VAPI script already exists in DOM, waiting for load");
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = "https://cdn.vapi.ai/vapi.js";
       script.async = true;
+      
       script.onload = () => {
-        vapiScriptLoaded.current = true;
-        console.log("VAPI script loaded");
+        console.log("VAPI script loaded successfully");
+        setScriptLoaded(true);
       };
+      
+      script.onerror = (error) => {
+        console.error("Error loading VAPI script:", error);
+        scriptAttempts.current += 1;
+        
+        if (scriptAttempts.current < 3) {
+          console.log(`Retrying script load, attempt ${scriptAttempts.current + 1}`);
+          setTimeout(loadVAPIScript, 1500);
+        } else {
+          toast.error("Failed to load voice reporting system. Please check your connection.");
+        }
+      };
+      
       document.body.appendChild(script);
-    }
+    };
+
+    loadVAPIScript();
 
     return () => {
       // Cleanup if needed
@@ -35,12 +70,47 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
     };
   }, []);
 
+  // Check if VAPI is loaded after script is loaded
+  useEffect(() => {
+    if (scriptLoaded) {
+      // Wait a bit to ensure VAPI is initialized
+      const checkVAPI = setTimeout(() => {
+        if (!window.VAPI) {
+          console.warn("VAPI not available after script load, retrying...");
+          setScriptLoaded(false);
+          scriptAttempts.current += 1;
+          
+          if (scriptAttempts.current < 3) {
+            // Force reload the script
+            const existingScript = document.querySelector('script[src="https://cdn.vapi.ai/vapi.js"]');
+            if (existingScript) {
+              existingScript.remove();
+            }
+          }
+        } else {
+          console.log("VAPI is available and ready to use");
+        }
+      }, 1000);
+      
+      return () => clearTimeout(checkVAPI);
+    }
+  }, [scriptLoaded]);
+
   const connectToVAPIAgent = async () => {
     setIsConnecting(true);
     
     try {
       if (!window.VAPI) {
-        toast.error("VAPI script not loaded. Please refresh the page.");
+        toast.error("Voice reporting system not loaded. Trying to reload script...");
+        setScriptLoaded(false);
+        scriptAttempts.current = 0;
+        
+        // Force reload the script
+        const existingScript = document.querySelector('script[src="https://cdn.vapi.ai/vapi.js"]');
+        if (existingScript) {
+          existingScript.remove();
+        }
+        
         setIsConnecting(false);
         return;
       }
@@ -48,7 +118,7 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
       // Initialize VAPI agent
       vapiAgent.current = new window.VAPI({
         agentId: agentId,
-        publicKey: "6b3e7486-6bd4-4521-b010-4d4ea7bf2f48",
+        publicKey: "6b3e7486-6bd4-4521-b010-4d4ea7bf2f48", // Using the public key provided
         callbacks: {
           onStart: () => {
             console.log("Recording started");
