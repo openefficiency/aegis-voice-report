@@ -2,6 +2,7 @@
 import React from "react";
 import { Report } from "@/lib/reports";
 import StatCard from "./StatCard";
+import { AlertCircle, Clock, FileCheck, Flag } from "lucide-react";
 
 interface DashboardStatsProps {
   reports: Report[];
@@ -20,25 +21,29 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ reports }) => {
         title="New Reports" 
         count={newReports} 
         bgColor="bg-aegis-lightBlue" 
-        borderColor="border-aegis-blue" 
+        borderColor="border-aegis-blue"
+        icon={Flag}
       />
       <StatCard 
         title="Under Review" 
         count={underReviewReports} 
         bgColor="bg-yellow-50" 
-        borderColor="border-yellow-500" 
+        borderColor="border-yellow-500"
+        icon={Clock}
       />
       <StatCard 
         title="Escalated" 
         count={escalatedReports} 
         bgColor="bg-red-50" 
-        borderColor="border-red-500" 
+        borderColor="border-red-500"
+        icon={AlertCircle}
       />
       <StatCard 
         title="Resolved" 
         count={resolvedReports} 
         bgColor="bg-green-50" 
-        borderColor="border-green-500" 
+        borderColor="border-green-500"
+        icon={FileCheck}
       />
     </div>
   );
