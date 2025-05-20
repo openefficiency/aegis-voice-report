@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Mic, MicOff } from "lucide-react";
@@ -11,27 +11,81 @@ interface VAPIAgentProps {
 const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const vapiScriptLoaded = useRef(false);
+  const vapiAgent = useRef<any>(null);
 
-  const connectToVAPIAgent = () => {
+  // Load VAPI script
+  useEffect(() => {
+    if (!vapiScriptLoaded.current) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.vapi.ai/vapi.js";
+      script.async = true;
+      script.onload = () => {
+        vapiScriptLoaded.current = true;
+        console.log("VAPI script loaded");
+      };
+      document.body.appendChild(script);
+    }
+
+    return () => {
+      // Cleanup if needed
+      if (vapiAgent.current) {
+        vapiAgent.current.destroy();
+      }
+    };
+  }, []);
+
+  const connectToVAPIAgent = async () => {
     setIsConnecting(true);
     
-    // Simulating connection delay
-    setTimeout(() => {
+    try {
+      if (!window.VAPI) {
+        toast.error("VAPI script not loaded. Please refresh the page.");
+        setIsConnecting(false);
+        return;
+      }
+
+      // Initialize VAPI agent
+      vapiAgent.current = new window.VAPI({
+        agentId: agentId,
+        publicKey: "6b3e7486-6bd4-4521-b010-4d4ea7bf2f48",
+        callbacks: {
+          onStart: () => {
+            console.log("Recording started");
+            setIsRecording(true);
+            setIsConnecting(false);
+            toast.success("Connected to secure voice reporting system");
+          },
+          onStop: () => {
+            console.log("Recording stopped");
+            setIsRecording(false);
+            toast.info("Report submitted successfully!");
+          },
+          onError: (error: any) => {
+            console.error("VAPI error:", error);
+            setIsRecording(false);
+            setIsConnecting(false);
+            toast.error("Error: " + (error.message || "Unknown error occurred"));
+          }
+        },
+      });
+
+      // Start the conversation
+      await vapiAgent.current.start();
+    } catch (error) {
+      console.error("Error initializing VAPI:", error);
       setIsConnecting(false);
-      setIsRecording(true);
-      toast.success("Connected to secure voice reporting system");
-      
-      // For development purposes, we'll add a simulated timeout for recording
-      // In production, this would be handled by the VAPI SDK
-      console.log(`Connecting to VAPI agent with ID: ${agentId}`);
-    }, 1500);
+      toast.error("Failed to initialize voice reporting system");
+    }
   };
 
   const stopRecording = () => {
-    setIsRecording(false);
-    toast.info("Report submitted successfully!");
-    
-    // In a real implementation, this is where we'd handle the VAPI response
+    if (vapiAgent.current) {
+      vapiAgent.current.stop();
+    } else {
+      setIsRecording(false);
+      toast.error("Voice agent not properly initialized");
+    }
   };
 
   return (

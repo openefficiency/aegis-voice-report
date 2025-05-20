@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, BarChart2, RefreshCw } from "lucide-react";
+import { Search, Filter, BarChart2, RefreshCw, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { getCurrentUser, logout } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const MOCK_CASES = [
   {
@@ -48,6 +52,8 @@ const MOCK_CASES = [
 const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const navigate = useNavigate();
+  const currentUser = getCurrentUser();
   
   // Filter cases based on search term and status
   const filteredCases = MOCK_CASES.filter((caseItem) => {
@@ -62,6 +68,12 @@ const Dashboard = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
+    navigate("/login");
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -73,6 +85,21 @@ const Dashboard = () => {
             <p className="text-gray-600 mt-1">Monitor and manage whistleblower reports</p>
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
+            {currentUser && (
+              <div className="flex items-center gap-2 bg-aegis-lightGray px-4 py-2 rounded-md">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                  <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium">{currentUser.name}</p>
+                  <p className="text-xs text-gray-500 capitalize">{currentUser.role.replace('_', ' ')}</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
             <Button 
               variant="outline" 
               className="flex items-center gap-1"
