@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { 
   Play, 
   FileText, 
@@ -21,86 +22,132 @@ import {
   User,
   Upload,
   Pencil,
-  Award 
+  Award,
+  UserPlus 
 } from "lucide-react";
 import { toast } from "sonner";
-
-// Mock data for a single case
-const MOCK_CASES = [
-  {
-    id: "AW-2023-001",
-    title: "Financial Reporting Discrepancy",
-    summary: "AI-generated summary: Potential misstatement of quarterly earnings by ~$2.3M. Complainant provided evidence of irregular accounting practices in the Q3 reporting cycle.",
-    fullTranscript: "I've been working in the accounting department for three years now, and I've noticed something concerning in our quarterly reports. For the past Q3 cycle, it appears that earnings have been overstated by approximately $2.3 million. I've observed irregular journal entries that don't follow standard accounting practices. Specifically, there are several transactions coded to deferred revenue that should be recognized in future periods according to GAAP principles. I've collected screenshots of these entries from our system and notes from meetings where these decisions were made. This appears to be deliberate to meet quarterly targets and not a simple oversight.",
-    date: "May 15, 2025",
-    time: "14:32:41",
-    reportedBy: "Anonymous Whistleblower",
-    categories: ["Fraud", "Financial", "Accounting"],
-    tags: ["Q3 Reporting", "Revenue Recognition", "GAAP Violation"],
-    status: "under_review",
-    assignedTo: "Jennifer Martinez",
-    priority: "High",
-    audioUrl: "#", // In a real application, this would be a URL to the audio file
-    actions: [
-      {
-        action: "Report Created",
-        timestamp: "May 15, 2025 14:32:41",
-        user: "System"
-      },
-      {
-        action: "Status changed to Under Review",
-        timestamp: "May 15, 2025 15:10:22",
-        user: "Daniel Wong"
-      },
-      {
-        action: "Assigned to Jennifer Martinez",
-        timestamp: "May 16, 2025 09:15:33",
-        user: "Daniel Wong"
-      },
-      {
-        action: "Note added",
-        timestamp: "May 16, 2025 11:42:15",
-        user: "Jennifer Martinez",
-        note: "Requesting additional documentation from Finance department. Need to verify Q3 journal entries."
-      }
-    ]
-  },
-  // More mock cases would go here
-];
+import { 
+  getReports, 
+  updateReport, 
+  addReportAction, 
+  assignReport, 
+  updateReportStatus, 
+  Report 
+} from "@/lib/reports";
+import { getCurrentUser, DEMO_USERS } from "@/lib/auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const CaseDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [note, setNote] = useState("");
-  const [status, setStatus] = useState("under_review");
+  const [report, setReport] = useState<Report | null>(null);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedInvestigator, setSelectedInvestigator] = useState<string>("");
   
-  // Find the case with the matching ID from our mock data
-  const caseItem = MOCK_CASES.find(c => c.id === id);
+  const currentUser = getCurrentUser();
+  const investigators = DEMO_USERS.filter(user => user.role === "investigator");
   
-  // If no case is found, redirect to the dashboard
-  if (!caseItem) {
+  // Load report data
+  useEffect(() => {
+    const reports = getReports();
+    const foundReport = reports.find(r => r.id === id);
+    if (foundReport) {
+      setReport(foundReport);
+    }
+  }, [id]);
+  
+  // If no report is found, redirect to the dashboard
+  if (!report) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const addNote = () => {
+  const addNoteToReport = () => {
     if (!note.trim()) {
       toast.error("Please enter a note before submitting");
       return;
     }
     
+    if (!currentUser) {
+      toast.error("You must be logged in to add notes");
+      return;
+    }
+    
+    const currentTime = new Date().toLocaleString();
+    const newAction = {
+      action: "Note added",
+      timestamp: currentTime,
+      user: currentUser.name,
+      note: note
+    };
+    
+    const updatedReports = addReportAction(report.id, newAction);
+    const updatedReport = updatedReports.find(r => r.id === report.id);
+    if (updatedReport) {
+      setReport(updatedReport);
+    }
+    
     toast.success("Note added to case");
     setNote("");
-    // In a real application, this would update the case data
   };
 
-  const updateStatus = (newStatus: string) => {
-    setStatus(newStatus);
+  const handleUpdateStatus = (newStatus: string) => {
+    if (!currentUser) {
+      toast.error("You must be logged in to update status");
+      return;
+    }
+    
+    const validStatus = newStatus as "new" | "under_review" | "escalated" | "resolved";
+    const updatedReports = updateReportStatus(report.id, validStatus);
+    const updatedReport = updatedReports.find(r => r.id === report.id);
+    if (updatedReport) {
+      setReport(updatedReport);
+    }
+    
     toast.success(`Case status updated to ${newStatus.replace('_', ' ').toUpperCase()}`);
-    // In a real application, this would update the case data
+  };
+  
+  const openAssignDialog = () => {
+    setAssignDialogOpen(true);
+    if (report.assignedTo) {
+      const assignedUser = DEMO_USERS.find(u => u.name === report.assignedTo);
+      if (assignedUser) {
+        setSelectedInvestigator(assignedUser.id);
+      }
+    }
+  };
+  
+  const handleAssignReport = () => {
+    if (!selectedInvestigator) {
+      toast.error("Please select an investigator");
+      return;
+    }
+    
+    const investigator = DEMO_USERS.find(u => u.id === selectedInvestigator);
+    if (!investigator) return;
+    
+    const updatedReports = assignReport(report.id, investigator.name);
+    const updatedReport = updatedReports.find(r => r.id === report.id);
+    if (updatedReport) {
+      setReport(updatedReport);
+    }
+    
+    setAssignDialogOpen(false);
+    toast.success(`Report assigned to ${investigator.name}`);
   };
 
   const sendReward = () => {
     toast.success("Reward process initiated");
     // In a real application, this would trigger the reward workflow
+  };
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case "new": return "bg-blue-500";
+      case "under_review": return "bg-yellow-500";
+      case "escalated": return "bg-red-500";
+      case "resolved": return "bg-green-500";
+      default: return "bg-gray-500";
+    }
   };
 
   return (
@@ -111,25 +158,23 @@ const CaseDetail = () => {
         <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{caseItem.title}</h1>
-              <Badge 
-                className={
-                  caseItem.status === "new" ? "bg-blue-500" :
-                  caseItem.status === "under_review" ? "bg-yellow-500" :
-                  caseItem.status === "escalated" ? "bg-red-500" : "bg-green-500"
-                }
-              >
-                {caseItem.status.replace('_', ' ').toUpperCase()}
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{report.title}</h1>
+              <Badge className={getStatusClass(report.status)}>
+                {report.status.replace('_', ' ').toUpperCase()}
               </Badge>
             </div>
-            <div className="text-gray-500 mt-1">Case #{caseItem.id} • Reported on {caseItem.date}</div>
+            <div className="text-gray-500 mt-1">Case #{report.id} • Reported on {report.date}</div>
           </div>
           
           <div className="flex gap-3">
             <Button variant="outline" className="flex items-center gap-1">
               <Play className="h-4 w-4" /> Play Audio
             </Button>
-            <Button variant="outline" className="flex items-center gap-1">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-1"
+              onClick={openAssignDialog}
+            >
               <Users className="h-4 w-4" /> Assign Case
             </Button>
             <Button variant="default" className="bg-aegis-blue hover:bg-blue-600">
@@ -149,7 +194,7 @@ const CaseDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 mb-4">{caseItem.summary}</p>
+                <p className="text-gray-700 mb-4">{report.summary}</p>
                 
                 <div className="bg-gray-50 p-4 rounded-md">
                   <h3 className="font-medium mb-2 flex items-center">
@@ -157,9 +202,12 @@ const CaseDetail = () => {
                     Key Concerns
                   </h3>
                   <ul className="list-disc list-inside text-gray-700 space-y-1">
-                    <li>Potential misstatement of quarterly earnings (~$2.3M)</li>
-                    <li>Irregular accounting practices identified</li>
-                    <li>Possible deliberate GAAP violations</li>
+                    {report.categories.map((category, index) => (
+                      <li key={index}>{category} related concern identified</li>
+                    ))}
+                    {report.status === "escalated" && (
+                      <li className="text-red-600">High priority case requiring immediate attention</li>
+                    )}
                   </ul>
                 </div>
               </CardContent>
@@ -176,7 +224,10 @@ const CaseDetail = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="bg-gray-50 p-4 rounded-md text-gray-700">
-                      <p className="whitespace-pre-line">{caseItem.fullTranscript}</p>
+                      <p className="whitespace-pre-line">
+                        {report.fullTranscript || 
+                         "No full transcript is available for this report yet. The AI is still processing the voice recording."}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -202,19 +253,27 @@ const CaseDetail = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="space-y-4">
-                      {caseItem.actions.map((action, index) => (
-                        <div key={index} className="flex items-start">
-                          <div className="bg-aegis-lightBlue rounded-full p-1 mr-3 mt-1">
-                            <Clock className="h-4 w-4 text-aegis-blue" />
+                      {report.actions && report.actions.length > 0 ? (
+                        report.actions.map((action, index) => (
+                          <div key={index} className="flex items-start">
+                            <div className="bg-aegis-lightBlue rounded-full p-1 mr-3 mt-1">
+                              <Clock className="h-4 w-4 text-aegis-blue" />
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">{action.timestamp}</p>
+                              <p className="font-medium">{action.action}</p>
+                              {action.note && (
+                                <p className="text-gray-700 text-sm mt-1 bg-gray-50 p-2 rounded">{action.note}</p>
+                              )}
+                              <p className="text-sm text-gray-600 mt-1">By: {action.user}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm text-gray-500">{action.timestamp}</p>
-                            <p className="font-medium">{action.action}</p>
-                            {action.note && <p className="text-gray-700 text-sm mt-1 bg-gray-50 p-2 rounded">{action.note}</p>}
-                            <p className="text-sm text-gray-600 mt-1">By: {action.user}</p>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6">
+                          <p className="text-gray-500">No activity recorded yet.</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -237,7 +296,7 @@ const CaseDetail = () => {
                 />
                 <Button
                   className="bg-aegis-blue hover:bg-blue-600"
-                  onClick={addNote}
+                  onClick={addNoteToReport}
                 >
                   Add Note
                 </Button>
@@ -256,7 +315,7 @@ const CaseDetail = () => {
                   <p className="text-sm text-gray-500">Priority</p>
                   <p className="font-medium flex items-center">
                     <AlertTriangle className="h-4 w-4 mr-1 text-red-500" />
-                    {caseItem.priority}
+                    {report.priority || "Medium"}
                   </p>
                 </div>
                 
@@ -264,22 +323,34 @@ const CaseDetail = () => {
                   <p className="text-sm text-gray-500">Reported By</p>
                   <p className="font-medium flex items-center">
                     <User className="h-4 w-4 mr-1 text-gray-600" />
-                    {caseItem.reportedBy}
+                    {report.reportedBy || "Anonymous Whistleblower"}
                   </p>
                 </div>
                 
                 <div>
                   <p className="text-sm text-gray-500">Assigned To</p>
-                  <p className="font-medium flex items-center">
-                    <User className="h-4 w-4 mr-1 text-aegis-blue" />
-                    {caseItem.assignedTo}
-                  </p>
+                  {report.assignedTo ? (
+                    <p className="font-medium flex items-center">
+                      <User className="h-4 w-4 mr-1 text-aegis-blue" />
+                      {report.assignedTo}
+                    </p>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-1 text-aegis-blue border-aegis-blue"
+                      onClick={openAssignDialog}
+                    >
+                      <UserPlus className="h-4 w-4 mr-1" />
+                      Assign Case
+                    </Button>
+                  )}
                 </div>
                 
                 <div>
                   <p className="text-sm text-gray-500">Categories</p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {caseItem.categories.map((category, index) => (
+                    {report.categories.map((category, index) => (
                       <Badge 
                         key={index} 
                         variant="outline" 
@@ -291,24 +362,26 @@ const CaseDetail = () => {
                   </div>
                 </div>
                 
-                <div>
-                  <p className="text-sm text-gray-500">Tags</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {caseItem.tags.map((tag, index) => (
-                      <Badge 
-                        key={index} 
-                        variant="secondary" 
-                        className="bg-gray-100"
-                      >
-                        {tag}
-                      </Badge>
-                    ))}
+                {report.tags && (
+                  <div>
+                    <p className="text-sm text-gray-500">Tags</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {report.tags.map((tag, index) => (
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className="bg-gray-100"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 
                 <div className="pt-2">
                   <p className="text-sm text-gray-500 mb-1">Update Status</p>
-                  <Select value={status} onValueChange={updateStatus}>
+                  <Select defaultValue={report.status} onValueChange={handleUpdateStatus}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -379,6 +452,65 @@ const CaseDetail = () => {
           </div>
         </div>
       </main>
+      
+      {/* Assign Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <UserPlus className="h-5 w-5 mr-2 text-aegis-blue" /> 
+              Assign Report to Investigator
+            </DialogTitle>
+            <DialogDescription>
+              Select an investigator to handle this report.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Select value={selectedInvestigator} onValueChange={setSelectedInvestigator}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Investigator" />
+              </SelectTrigger>
+              <SelectContent>
+                {investigators.map(investigator => (
+                  <SelectItem key={investigator.id} value={investigator.id}>
+                    <div className="flex items-center">
+                      <Avatar className="h-6 w-6 mr-2">
+                        <AvatarImage src={investigator.avatar} />
+                        <AvatarFallback>{investigator.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      {investigator.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <div className="mt-4 p-3 bg-blue-50 rounded flex items-start">
+              <AlertTriangle className="h-5 w-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
+              <p className="text-sm text-blue-700">
+                Assigning a case will notify the investigator and change the status to "Under Review".
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAssignDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="bg-aegis-blue hover:bg-blue-600" 
+              onClick={handleAssignReport}
+              disabled={!selectedInvestigator}
+            >
+              Assign Case
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Footer />
     </div>

@@ -3,7 +3,7 @@ import React from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, Play, CheckCircle, AlertTriangle, Clock } from "lucide-react";
+import { Pencil, Play, CheckCircle, AlertTriangle, Clock, User } from "lucide-react";
 
 interface CaseCardProps {
   id: string;
@@ -12,6 +12,9 @@ interface CaseCardProps {
   date: string;
   categories: string[];
   status: "new" | "under_review" | "escalated" | "resolved";
+  assignedTo?: string;
+  onAssign?: () => void;
+  onViewDetails?: () => void;
 }
 
 const CaseCard: React.FC<CaseCardProps> = ({
@@ -21,6 +24,9 @@ const CaseCard: React.FC<CaseCardProps> = ({
   date,
   categories,
   status,
+  assignedTo,
+  onAssign,
+  onViewDetails,
 }) => {
   const getStatusBadge = () => {
     switch (status) {
@@ -66,6 +72,14 @@ const CaseCard: React.FC<CaseCardProps> = ({
       </CardHeader>
       <CardContent>
         <p className="text-sm text-gray-700 line-clamp-3">{summary}</p>
+        
+        {assignedTo && (
+          <div className="mt-3 flex items-center text-sm">
+            <User className="h-3.5 w-3.5 mr-1 text-aegis-blue" />
+            <span className="text-gray-700">Assigned to: <span className="font-medium">{assignedTo}</span></span>
+          </div>
+        )}
+        
         <div className="flex flex-wrap gap-1 mt-3">
           {categories.map((category, index) => (
             <Badge key={index} variant="outline" className="bg-aegis-lightGray text-gray-700">
@@ -78,7 +92,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
         <Button variant="ghost" size="sm" className="text-aegis-blue">
           <Play className="h-4 w-4 mr-1" /> Listen
         </Button>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={onViewDetails}>
           View Details
         </Button>
       </CardFooter>

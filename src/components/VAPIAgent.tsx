@@ -17,100 +17,50 @@ declare global {
 const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
   const vapiAgent = useRef<any>(null);
-  const scriptAttempts = useRef(0);
 
-  // Load VAPI script with improved error handling
   useEffect(() => {
-    const loadVAPIScript = () => {
-      if (window.VAPI) {
-        setScriptLoaded(true);
-        console.log("VAPI already available in window");
-        return;
-      }
-
-      const existingScript = document.querySelector('script[src="https://cdn.vapi.ai/vapi.js"]');
-      if (existingScript) {
-        console.log("VAPI script already exists in DOM, waiting for load");
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = "https://cdn.vapi.ai/vapi.js";
-      script.async = true;
+    // Check if VAPI is already available in the global window object
+    if (window.VAPI) {
+      console.log("VAPI already available in window");
+    } else {
+      console.log("Waiting for VAPI to initialize...");
       
-      script.onload = () => {
-        console.log("VAPI script loaded successfully");
-        setScriptLoaded(true);
-      };
-      
-      script.onerror = (error) => {
-        console.error("Error loading VAPI script:", error);
-        scriptAttempts.current += 1;
-        
-        if (scriptAttempts.current < 3) {
-          console.log(`Retrying script load, attempt ${scriptAttempts.current + 1}`);
-          setTimeout(loadVAPIScript, 1500);
-        } else {
-          toast.error("Failed to load voice reporting system. Please check your connection.");
+      // Set up a check interval to detect when VAPI becomes available
+      const checkInterval = setInterval(() => {
+        if (window.VAPI) {
+          console.log("VAPI detected and ready to use");
+          clearInterval(checkInterval);
         }
-      };
+      }, 500);
       
-      document.body.appendChild(script);
-    };
-
-    loadVAPIScript();
+      // Clear interval after 10 seconds to prevent infinite checking
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        if (!window.VAPI) {
+          console.warn("VAPI still not available after timeout");
+        }
+      }, 10000);
+    }
 
     return () => {
       // Cleanup if needed
       if (vapiAgent.current) {
-        vapiAgent.current.destroy();
+        try {
+          vapiAgent.current.destroy();
+        } catch (e) {
+          console.error("Error cleaning up VAPI agent:", e);
+        }
       }
     };
   }, []);
-
-  // Check if VAPI is loaded after script is loaded
-  useEffect(() => {
-    if (scriptLoaded) {
-      // Wait a bit to ensure VAPI is initialized
-      const checkVAPI = setTimeout(() => {
-        if (!window.VAPI) {
-          console.warn("VAPI not available after script load, retrying...");
-          setScriptLoaded(false);
-          scriptAttempts.current += 1;
-          
-          if (scriptAttempts.current < 3) {
-            // Force reload the script
-            const existingScript = document.querySelector('script[src="https://cdn.vapi.ai/vapi.js"]');
-            if (existingScript) {
-              existingScript.remove();
-            }
-          }
-        } else {
-          console.log("VAPI is available and ready to use");
-        }
-      }, 1000);
-      
-      return () => clearTimeout(checkVAPI);
-    }
-  }, [scriptLoaded]);
 
   const connectToVAPIAgent = async () => {
     setIsConnecting(true);
     
     try {
       if (!window.VAPI) {
-        toast.error("Voice reporting system not loaded. Trying to reload script...");
-        setScriptLoaded(false);
-        scriptAttempts.current = 0;
-        
-        // Force reload the script
-        const existingScript = document.querySelector('script[src="https://cdn.vapi.ai/vapi.js"]');
-        if (existingScript) {
-          existingScript.remove();
-        }
-        
+        toast.error("Voice reporting system not available. Please try again in a moment.");
         setIsConnecting(false);
         return;
       }
@@ -118,7 +68,7 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
       // Initialize VAPI agent
       vapiAgent.current = new window.VAPI({
         agentId: agentId,
-        publicKey: "6b3e7486-6bd4-4521-b010-4d4ea7bf2f48", // Using the public key provided
+        publicKey: "6b3e7486-6bd4-4521-b010-4d4ea7bf2f48",
         callbacks: {
           onStart: () => {
             console.log("Recording started");
@@ -130,6 +80,23 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
             console.log("Recording stopped");
             setIsRecording(false);
             toast.info("Report submitted successfully!");
+            
+            // Add report to localStorage for persistence
+            const existingReports = JSON.parse(localStorage.getItem('aegis_whistleblower_reports') || '[]');
+            const newReport = {
+              id: `AW-2023-${existingReports.length + 5}`,
+              title: "New Voice Report",
+              summary: "AI-generated summary: Voice report submitted. Awaiting AI transcription and analysis.",
+              date: new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              }),
+              categories: ["Unclassified"],
+              status: "new",
+            };
+            
+            localStorage.setItem('aegis_whistleblower_reports', JSON.stringify([...existingReports, newReport]));
           },
           onError: (error: any) => {
             console.error("VAPI error:", error);
@@ -151,7 +118,13 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
 
   const stopRecording = () => {
     if (vapiAgent.current) {
-      vapiAgent.current.stop();
+      try {
+        vapiAgent.current.stop();
+      } catch (error) {
+        console.error("Error stopping VAPI:", error);
+        setIsRecording(false);
+        toast.error("Error stopping recording");
+      }
     } else {
       setIsRecording(false);
       toast.error("Voice agent not properly initialized");
