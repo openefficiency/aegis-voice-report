@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -120,13 +119,21 @@ const Dashboard = () => {
 
   // Transform reports to match the format expected by other components
   const transformToLocalReports = (reports: Report[]): LocalReport[] => {
-    return reports.map(report => ({
-      ...report,
-      date: report.date_reported,
-      fullTranscript: report.full_transcript,
-      audioUrl: report.audio_url,
-      status: report.status as "new" | "under_review" | "escalated" | "resolved"
-    }));
+    return reports.map(report => {
+      // Validate priority to match expected type
+      const validPriority = ["Low", "Medium", "High"].includes(report.priority || "") 
+        ? report.priority as "Low" | "Medium" | "High" 
+        : "Medium";
+      
+      return {
+        ...report,
+        date: report.date_reported,
+        fullTranscript: report.full_transcript,
+        audioUrl: report.audio_url,
+        status: report.status as "new" | "under_review" | "escalated" | "resolved",
+        priority: validPriority
+      };
+    });
   };
 
   const filteredReports = reports.filter(report => {
@@ -196,8 +203,10 @@ const Dashboard = () => {
         <AssignCaseDialog
           open={assignDialogOpen}
           setOpen={setAssignDialogOpen}
-          reportId={selectedReportId || ""}
-          onAssigned={fetchReports}
+          selectedInvestigator=""
+          setSelectedInvestigator={() => {}}
+          investigators={[]}
+          handleAssignReport={() => {}}
         />
       </div>
     </div>

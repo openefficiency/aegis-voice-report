@@ -13,6 +13,7 @@ interface CaseCardProps {
   categories: string[];
   status: "new" | "under_review" | "escalated" | "resolved";
   assignedTo?: string;
+  priority?: string;
   onAssign?: () => void;
   onViewDetails?: () => void;
 }
@@ -25,6 +26,7 @@ const CaseCard: React.FC<CaseCardProps> = ({
   categories,
   status,
   assignedTo,
+  priority,
   onAssign,
   onViewDetails,
 }) => {
