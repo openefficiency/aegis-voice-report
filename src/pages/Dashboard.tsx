@@ -13,6 +13,7 @@ import CasesList from "@/components/dashboard/CasesList";
 import AssignCaseDialog from "@/components/dashboard/AssignCaseDialog";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
+import { Report as LocalReport } from "@/lib/reports";
 
 interface Report {
   id: string;
@@ -117,6 +118,17 @@ const Dashboard = () => {
     navigate(`/case/${id}`);
   };
 
+  // Transform reports to match the format expected by other components
+  const transformToLocalReports = (reports: Report[]): LocalReport[] => {
+    return reports.map(report => ({
+      ...report,
+      date: report.date_reported,
+      fullTranscript: report.full_transcript,
+      audioUrl: report.audio_url,
+      status: report.status as "new" | "under_review" | "escalated" | "resolved"
+    }));
+  };
+
   const filteredReports = reports.filter(report => {
     const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.summary?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -144,7 +156,7 @@ const Dashboard = () => {
           onRefresh={fetchReports}
         />
         
-        <DashboardStats reports={reports} />
+        <DashboardStats reports={transformToLocalReports(reports)} />
         
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
@@ -184,10 +196,8 @@ const Dashboard = () => {
         <AssignCaseDialog
           open={assignDialogOpen}
           setOpen={setAssignDialogOpen}
-          selectedInvestigator=""
-          setSelectedInvestigator={() => {}}
-          investigators={[]}
-          handleAssignReport={() => {}}
+          reportId={selectedReportId || ""}
+          onAssigned={fetchReports}
         />
       </div>
     </div>

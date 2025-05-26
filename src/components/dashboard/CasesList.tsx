@@ -38,6 +38,12 @@ const CasesList: React.FC<CasesListProps> = ({
   openAssignDialog, 
   handleViewCase 
 }) => {
+  // Helper function to validate and cast status
+  const getValidStatus = (status: string): "new" | "under_review" | "escalated" | "resolved" => {
+    const validStatuses = ["new", "under_review", "escalated", "resolved"];
+    return validStatuses.includes(status) ? status as "new" | "under_review" | "escalated" | "resolved" : "new";
+  };
+
   return (
     <>
       <TabsContent value="all" className="mt-6">
@@ -48,10 +54,10 @@ const CasesList: React.FC<CasesListProps> = ({
                 <CaseCard 
                   id={report.id}
                   title={report.title}
-                  summary={report.summary}
+                  summary={report.summary || ""}
                   date={report.date_reported}
-                  categories={report.categories}
-                  status={report.status}
+                  categories={report.categories || []}
+                  status={getValidStatus(report.status)}
                   assignedTo={report.assigned_to}
                   priority={report.priority}
                   onAssign={() => openAssignDialog(report.id)}
@@ -84,10 +90,10 @@ const CasesList: React.FC<CasesListProps> = ({
               <CaseCard 
                 id={report.id}
                 title={report.title}
-                summary={report.summary}
+                summary={report.summary || ""}
                 date={report.date_reported}
-                categories={report.categories}
-                status={report.status}
+                categories={report.categories || []}
+                status={getValidStatus(report.status)}
                 assignedTo={report.assigned_to}
                 priority={report.priority}
                 onAssign={() => openAssignDialog(report.id)}
@@ -119,10 +125,10 @@ const CasesList: React.FC<CasesListProps> = ({
                     key={report.id} 
                     id={report.id}
                     title={report.title}
-                    summary={report.summary}
+                    summary={report.summary || ""}
                     date={report.date_reported}
-                    categories={report.categories}
-                    status={report.status}
+                    categories={report.categories || []}
+                    status={getValidStatus(report.status)}
                     assignedTo={report.assigned_to}
                     priority={report.priority}
                     onViewDetails={() => handleViewCase(report.id)}
