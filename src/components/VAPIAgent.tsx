@@ -18,31 +18,34 @@ declare global {
 const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [vapiLoaded, setVapiLoaded] = useState(false);
   const vapiAgent = useRef<any>(null);
 
   useEffect(() => {
-    // Check if VAPI is already available in the global window object
-    if (window.VAPI) {
-      console.log("VAPI already available in window");
-    } else {
-      console.log("Waiting for VAPI to initialize...");
+    // Load VAPI script if not already loaded
+    const loadVAPIScript = () => {
+      if (window.VAPI) {
+        console.log("VAPI already available");
+        setVapiLoaded(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js';
+      script.async = true;
+      script.onload = () => {
+        console.log("VAPI script loaded successfully");
+        setVapiLoaded(true);
+      };
+      script.onerror = () => {
+        console.error("Failed to load VAPI script");
+        toast.error("Failed to load voice system. Please refresh and try again.");
+      };
       
-      // Set up a check interval to detect when VAPI becomes available
-      const checkInterval = setInterval(() => {
-        if (window.VAPI) {
-          console.log("VAPI detected and ready to use");
-          clearInterval(checkInterval);
-        }
-      }, 500);
-      
-      // Clear interval after 10 seconds to prevent infinite checking
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        if (!window.VAPI) {
-          console.warn("VAPI still not available after timeout");
-        }
-      }, 10000);
-    }
+      document.head.appendChild(script);
+    };
+
+    loadVAPIScript();
 
     return () => {
       // Cleanup if needed
@@ -105,59 +108,70 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
   };
 
   const connectToVAPIAgent = async () => {
+    if (!vapiLoaded) {
+      toast.error("Voice system is still loading. Please wait a moment and try again.");
+      return;
+    }
+
+    if (!window.VAPI) {
+      toast.error("Voice system not available. Please refresh the page and try again.");
+      return;
+    }
+
     setIsConnecting(true);
     
     try {
-      if (!window.VAPI) {
-        toast.error("Voice reporting system not available. Please try again in a moment.");
-        setIsConnecting(false);
-        return;
-      }
+      console.log("Initializing VAPI agent with agent ID:", agentId);
 
-      // Initialize VAPI agent
+      // Initialize VAPI agent with proper configuration
       vapiAgent.current = new window.VAPI({
         agentId: agentId,
         publicKey: "6b3e7486-6bd4-4521-b010-4d4ea7bf2f48",
         callbacks: {
           onStart: () => {
-            console.log("Recording started");
+            console.log("VAPI recording started");
             setIsRecording(true);
             setIsConnecting(false);
-            toast.success("Connected to secure voice reporting system");
+            toast.success("Connected! You can now speak your report.");
           },
           onStop: async (callData: any) => {
-            console.log("Recording stopped with data:", callData);
+            console.log("VAPI recording stopped with data:", callData);
             setIsRecording(false);
             
             try {
               await saveReportToDatabase(callData);
-              toast.success("Report submitted successfully and saved to database!");
+              toast.success("Report submitted successfully!");
             } catch (error) {
               console.error("Error saving report:", error);
-              toast.success("Report submitted successfully! (Saved locally)");
+              toast.success("Report submitted! (Saved locally)");
             }
           },
           onError: (error: any) => {
             console.error("VAPI error:", error);
             setIsRecording(false);
             setIsConnecting(false);
-            toast.error("Error: " + (error.message || "Unknown error occurred"));
+            toast.error("Voice system error: " + (error.message || "Please try again"));
+          },
+          onMessage: (message: any) => {
+            console.log("VAPI message:", message);
           }
         },
       });
 
       // Start the conversation
+      console.log("Starting VAPI conversation...");
       await vapiAgent.current.start();
     } catch (error) {
       console.error("Error initializing VAPI:", error);
       setIsConnecting(false);
-      toast.error("Failed to initialize voice reporting system");
+      toast.error("Failed to start voice recording. Please try again.");
     }
   };
 
   const stopRecording = () => {
     if (vapiAgent.current) {
       try {
+        console.log("Stopping VAPI recording...");
         vapiAgent.current.stop();
       } catch (error) {
         console.error("Error stopping VAPI:", error);
@@ -166,7 +180,7 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
       }
     } else {
       setIsRecording(false);
-      toast.error("Voice agent not properly initialized");
+      toast.error("Voice system not properly initialized");
     }
   };
 
@@ -177,11 +191,16 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
           size="lg" 
           className="bg-aegis-blue hover:bg-blue-600 text-white py-6 px-8 text-lg rounded-full"
           onClick={connectToVAPIAgent}
-          disabled={isConnecting}
+          disabled={isConnecting || !vapiLoaded}
         >
           {isConnecting ? (
             <>
               <span className="mr-2 animate-pulse">Connecting...</span>
+              <Mic className="ml-2 h-5 w-5" />
+            </>
+          ) : !vapiLoaded ? (
+            <>
+              <span className="mr-2">Loading...</span>
               <Mic className="ml-2 h-5 w-5" />
             </>
           ) : (
@@ -205,10 +224,16 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
       
       {isRecording && (
         <div className="mt-6 p-4 bg-aegis-lightBlue rounded-lg text-center max-w-md">
-          <p className="font-medium">Secure voice recording in progress...</p>
+          <p className="font-medium">🎤 Recording in progress...</p>
           <p className="text-sm text-gray-600 mt-1">
-            Speak clearly and provide details about the incident you wish to report.
+            Speak clearly about the incident you wish to report.
           </p>
+        </div>
+      )}
+
+      {!vapiLoaded && (
+        <div className="mt-4 text-sm text-gray-500">
+          Loading voice system...
         </div>
       )}
     </div>
