@@ -3,10 +3,16 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BarChart2, LogOut, RefreshCw } from "lucide-react";
-import { User } from "@/lib/auth";
+
+interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+}
 
 interface DashboardHeaderProps {
-  currentUser: User | null;
+  currentUser: UserProfile | null;
   onLogout: () => void;
   onRefresh: () => void;
 }
@@ -26,11 +32,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         {currentUser && (
           <div className="flex items-center gap-2 bg-aegis-lightGray px-4 py-2 rounded-md">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-              <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+              <AvatarFallback>{currentUser.full_name?.charAt(0) || currentUser.email.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-sm font-medium">{currentUser.name}</p>
+              <p className="text-sm font-medium">{currentUser.full_name || currentUser.email}</p>
               <p className="text-xs text-gray-500 capitalize">{currentUser.role.replace('_', ' ')}</p>
             </div>
             <Button variant="ghost" size="icon" onClick={onLogout}>

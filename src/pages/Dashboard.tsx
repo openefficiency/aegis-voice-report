@@ -27,10 +27,18 @@ interface Report {
   audio_url?: string;
 }
 
+interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -39,8 +47,28 @@ const Dashboard = () => {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchReports();
-  }, []);
+    if (user) {
+      fetchUserProfile();
+      fetchReports();
+    }
+  }, [user]);
+
+  const fetchUserProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      setUserProfile(data);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   const fetchReports = async () => {
     try {
@@ -51,7 +79,16 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      setReports(data || []);
+      // Transform the data to match our Report interface
+      const transformedReports = (data || []).map(report => ({
+        ...report,
+        date_reported: report.date_reported || report.created_at,
+        categories: report.categories || [],
+        status: report.status || 'new',
+        priority: report.priority || 'Medium'
+      }));
+
+      setReports(transformedReports);
     } catch (error) {
       console.error('Error fetching reports:', error);
       toast.error('Failed to load reports');
@@ -82,7 +119,7 @@ const Dashboard = () => {
 
   const filteredReports = reports.filter(report => {
     const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.summary.toLowerCase().includes(searchTerm.toLowerCase());
+                         report.summary?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || report.status === statusFilter;
     const matchesCategory = categoryFilter === "all" || 
                            (report.categories && report.categories.includes(categoryFilter));
@@ -102,7 +139,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <DashboardHeader 
-          currentUser={user}
+          currentUser={userProfile}
           onLogout={handleLogout}
           onRefresh={fetchReports}
         />
@@ -121,10 +158,10 @@ const Dashboard = () => {
               />
             </div>
             <SearchFilters
+              searchTerm={searchTerm}
               statusFilter={statusFilter}
+              setSearchTerm={setSearchTerm}
               setStatusFilter={setStatusFilter}
-              categoryFilter={categoryFilter}
-              setCategoryFilter={setCategoryFilter}
             />
           </div>
 
@@ -137,7 +174,7 @@ const Dashboard = () => {
 
             <CasesList
               filteredReports={filteredReports}
-              currentUser={user}
+              currentUser={userProfile}
               openAssignDialog={openAssignDialog}
               handleViewCase={handleViewCase}
             />
@@ -146,9 +183,11 @@ const Dashboard = () => {
 
         <AssignCaseDialog
           open={assignDialogOpen}
-          onOpenChange={setAssignDialogOpen}
-          reportId={selectedReportId}
-          onAssigned={fetchReports}
+          setOpen={setAssignDialogOpen}
+          selectedInvestigator=""
+          setSelectedInvestigator={() => {}}
+          investigators={[]}
+          handleAssignReport={() => {}}
         />
       </div>
     </div>

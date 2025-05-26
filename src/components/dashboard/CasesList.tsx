@@ -4,12 +4,30 @@ import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import CaseCard from "@/components/CaseCard";
 import { UserPlus } from "lucide-react";
-import { Report } from "@/lib/reports";
-import { User } from "@/lib/auth";
+
+interface Report {
+  id: string;
+  title: string;
+  summary: string;
+  full_transcript?: string;
+  date_reported: string;
+  categories: string[];
+  status: string;
+  assigned_to?: string;
+  priority?: string;
+  audio_url?: string;
+}
+
+interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+}
 
 interface CasesListProps {
   filteredReports: Report[];
-  currentUser: User | null;
+  currentUser: UserProfile | null;
   openAssignDialog: (reportId: string) => void;
   handleViewCase: (id: string) => void;
 }
@@ -28,7 +46,14 @@ const CasesList: React.FC<CasesListProps> = ({
             filteredReports.map((report) => (
               <div key={report.id} className="relative">
                 <CaseCard 
-                  {...report} 
+                  id={report.id}
+                  title={report.title}
+                  summary={report.summary}
+                  date={report.date_reported}
+                  categories={report.categories}
+                  status={report.status}
+                  assignedTo={report.assigned_to}
+                  priority={report.priority}
                   onAssign={() => openAssignDialog(report.id)}
                   onViewDetails={() => handleViewCase(report.id)}
                 />
@@ -57,7 +82,14 @@ const CasesList: React.FC<CasesListProps> = ({
           {filteredReports.slice(0, 5).map((report) => (
             <div key={report.id} className="relative">
               <CaseCard 
-                {...report} 
+                id={report.id}
+                title={report.title}
+                summary={report.summary}
+                date={report.date_reported}
+                categories={report.categories}
+                status={report.status}
+                assignedTo={report.assigned_to}
+                priority={report.priority}
                 onAssign={() => openAssignDialog(report.id)}
                 onViewDetails={() => handleViewCase(report.id)}
               />
@@ -79,13 +111,20 @@ const CasesList: React.FC<CasesListProps> = ({
       <TabsContent value="assigned" className="mt-6">
         {currentUser && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredReports.filter(r => r.assignedTo === currentUser.name).length > 0 ? (
+            {filteredReports.filter(r => r.assigned_to === currentUser.full_name).length > 0 ? (
               filteredReports
-                .filter(r => r.assignedTo === currentUser.name)
+                .filter(r => r.assigned_to === currentUser.full_name)
                 .map(report => (
                   <CaseCard 
                     key={report.id} 
-                    {...report}
+                    id={report.id}
+                    title={report.title}
+                    summary={report.summary}
+                    date={report.date_reported}
+                    categories={report.categories}
+                    status={report.status}
+                    assignedTo={report.assigned_to}
+                    priority={report.priority}
                     onViewDetails={() => handleViewCase(report.id)}
                   />
                 ))
