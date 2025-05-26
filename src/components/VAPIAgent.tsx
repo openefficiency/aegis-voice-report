@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Mic, MicOff } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VAPIAgentProps {
   agentId: string;
@@ -55,6 +56,54 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
     };
   }, []);
 
+  const saveReportToDatabase = async (callData: any) => {
+    try {
+      console.log("Saving report to database with call data:", callData);
+      
+      const { data, error } = await supabase
+        .from('reports')
+        .insert({
+          title: callData.title || "Voice Report",
+          summary: callData.summary || "AI-generated summary: Voice report submitted. Awaiting AI transcription and analysis.",
+          full_transcript: callData.transcript || null,
+          categories: callData.categories || ["Unclassified"],
+          status: "new",
+          priority: "Medium",
+          vapi_call_id: callData.call_id || null,
+          audio_url: callData.audio_url || null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error saving to database:", error);
+        throw error;
+      }
+
+      console.log("Report saved successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("Failed to save report to database:", error);
+      // Fallback to localStorage for offline functionality
+      const existingReports = JSON.parse(localStorage.getItem('aegis_whistleblower_reports') || '[]');
+      const newReport = {
+        id: `AW-2023-${existingReports.length + 5}`,
+        title: "New Voice Report",
+        summary: "AI-generated summary: Voice report submitted. Awaiting AI transcription and analysis.",
+        date: new Date().toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        categories: ["Unclassified"],
+        status: "new",
+      };
+      
+      localStorage.setItem('aegis_whistleblower_reports', JSON.stringify([...existingReports, newReport]));
+      return newReport;
+    }
+  };
+
   const connectToVAPIAgent = async () => {
     setIsConnecting(true);
     
@@ -76,27 +125,17 @@ const VAPIAgent: React.FC<VAPIAgentProps> = ({ agentId }) => {
             setIsConnecting(false);
             toast.success("Connected to secure voice reporting system");
           },
-          onStop: () => {
-            console.log("Recording stopped");
+          onStop: async (callData: any) => {
+            console.log("Recording stopped with data:", callData);
             setIsRecording(false);
-            toast.info("Report submitted successfully!");
             
-            // Add report to localStorage for persistence
-            const existingReports = JSON.parse(localStorage.getItem('aegis_whistleblower_reports') || '[]');
-            const newReport = {
-              id: `AW-2023-${existingReports.length + 5}`,
-              title: "New Voice Report",
-              summary: "AI-generated summary: Voice report submitted. Awaiting AI transcription and analysis.",
-              date: new Date().toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              }),
-              categories: ["Unclassified"],
-              status: "new",
-            };
-            
-            localStorage.setItem('aegis_whistleblower_reports', JSON.stringify([...existingReports, newReport]));
+            try {
+              await saveReportToDatabase(callData);
+              toast.success("Report submitted successfully and saved to database!");
+            } catch (error) {
+              console.error("Error saving report:", error);
+              toast.success("Report submitted successfully! (Saved locally)");
+            }
           },
           onError: (error: any) => {
             console.error("VAPI error:", error);

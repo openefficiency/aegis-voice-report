@@ -1,134 +1,156 @@
 
 import React, { useState, useEffect } from "react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentUser, logout, DEMO_USERS } from "@/lib/auth";
-import { getReports, assignReport, Report } from "@/lib/reports";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-
-// Import our refactored components
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import SearchFilters from "@/components/dashboard/SearchFilters";
 import CasesList from "@/components/dashboard/CasesList";
 import AssignCaseDialog from "@/components/dashboard/AssignCaseDialog";
+import { toast } from "sonner";
+import { Search } from "lucide-react";
+
+interface Report {
+  id: string;
+  title: string;
+  summary: string;
+  full_transcript?: string;
+  date_reported: string;
+  categories: string[];
+  status: string;
+  assigned_to?: string;
+  priority?: string;
+  audio_url?: string;
+}
 
 const Dashboard = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [reports, setReports] = useState<Report[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  const [selectedInvestigator, setSelectedInvestigator] = useState<string>("");
-  
-  const navigate = useNavigate();
-  const currentUser = getCurrentUser();
-  
-  // Load reports on component mount
+
   useEffect(() => {
-    setReports(getReports());
+    fetchReports();
   }, []);
 
-  // Filter reports based on search term and status
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch = 
-      report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.id.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = 
-      statusFilter === "all" || report.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const fetchReports = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  // Get investigator users for assignment
-  const investigators = DEMO_USERS.filter(user => user.role === "investigator");
-  
-  const handleLogout = () => {
-    logout();
-    toast.success("Logged out successfully");
-    navigate("/login");
+      if (error) throw error;
+
+      setReports(data || []);
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      toast.error('Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
   };
-  
-  const handleRefresh = () => {
-    setReports(getReports());
-    toast.success("Reports refreshed");
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/");
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Error logging out:", error);
+      toast.error("Error logging out");
+    }
   };
-  
+
   const openAssignDialog = (reportId: string) => {
     setSelectedReportId(reportId);
     setAssignDialogOpen(true);
   };
-  
-  const handleAssignReport = () => {
-    if (!selectedReportId || !selectedInvestigator) {
-      toast.error("Please select an investigator");
-      return;
-    }
-    
-    const investigator = DEMO_USERS.find(u => u.id === selectedInvestigator);
-    if (!investigator) return;
-    
-    const updatedReports = assignReport(selectedReportId, investigator.name);
-    setReports(updatedReports);
-    
-    setAssignDialogOpen(false);
-    toast.success(`Report assigned to ${investigator.name}`);
-  };
-  
+
   const handleViewCase = (id: string) => {
     navigate(`/case/${id}`);
   };
 
+  const filteredReports = reports.filter(report => {
+    const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.summary.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || report.status === statusFilter;
+    const matchesCategory = categoryFilter === "all" || 
+                           (report.categories && report.categories.includes(categoryFilter));
+    
+    return matchesSearch && matchesStatus && matchesCategory;
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading dashboard...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <main className="flex-grow container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
         <DashboardHeader 
-          currentUser={currentUser} 
-          onLogout={handleLogout} 
-          onRefresh={handleRefresh}
+          currentUser={user}
+          onLogout={handleLogout}
+          onRefresh={fetchReports}
         />
         
         <DashboardStats reports={reports} />
         
-        <SearchFilters 
-          searchTerm={searchTerm}
-          statusFilter={statusFilter}
-          setSearchTerm={setSearchTerm}
-          setStatusFilter={setStatusFilter}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
+            <div className="relative flex-grow max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search reports..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <SearchFilters
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
+            />
+          </div>
+
+          <Tabs defaultValue="all" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="all">All Reports ({filteredReports.length})</TabsTrigger>
+              <TabsTrigger value="recent">Recent</TabsTrigger>
+              <TabsTrigger value="assigned">Assigned to Me</TabsTrigger>
+            </TabsList>
+
+            <CasesList
+              filteredReports={filteredReports}
+              currentUser={user}
+              openAssignDialog={openAssignDialog}
+              handleViewCase={handleViewCase}
+            />
+          </Tabs>
+        </div>
+
+        <AssignCaseDialog
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          reportId={selectedReportId}
+          onAssigned={fetchReports}
         />
-        
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList>
-            <TabsTrigger value="all">All Cases</TabsTrigger>
-            <TabsTrigger value="recent">Recent</TabsTrigger>
-            <TabsTrigger value="assigned">Assigned to Me</TabsTrigger>
-          </TabsList>
-          
-          <CasesList 
-            filteredReports={filteredReports}
-            currentUser={currentUser}
-            openAssignDialog={openAssignDialog}
-            handleViewCase={handleViewCase}
-          />
-        </Tabs>
-      </main>
-      
-      <AssignCaseDialog
-        open={assignDialogOpen}
-        setOpen={setAssignDialogOpen}
-        selectedInvestigator={selectedInvestigator}
-        setSelectedInvestigator={setSelectedInvestigator}
-        investigators={investigators}
-        handleAssignReport={handleAssignReport}
-      />
-      
-      <Footer />
+      </div>
     </div>
   );
 };

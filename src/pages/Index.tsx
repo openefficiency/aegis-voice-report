@@ -98,13 +98,13 @@ const Index = () => {
               >
                 Make a Report
               </Button>
-              <Link to="/dashboard">
+              <Link to="/auth">
                 <Button 
                   size="lg" 
                   variant="outline"
                   className="border-white text-white hover:bg-white/10"
                 >
-                  View Dashboard
+                  Sign In / Sign Up
                 </Button>
               </Link>
             </div>

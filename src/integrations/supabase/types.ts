@@ -9,7 +9,253 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      investigator_queries: {
+        Row: {
+          answered_at: string | null
+          created_at: string | null
+          id: string
+          investigator_id: string
+          query_text: string
+          report_id: string
+          response_text: string | null
+          status: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          created_at?: string | null
+          id?: string
+          investigator_id: string
+          query_text: string
+          report_id: string
+          response_text?: string | null
+          status?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          created_at?: string | null
+          id?: string
+          investigator_id?: string
+          query_text?: string
+          report_id?: string
+          response_text?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investigator_queries_investigator_id_fkey"
+            columns: ["investigator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investigator_queries_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      report_actions: {
+        Row: {
+          action_type: string
+          description: string
+          id: string
+          metadata: Json | null
+          performed_by: string | null
+          report_id: string
+          timestamp: string | null
+        }
+        Insert: {
+          action_type: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          report_id: string
+          timestamp?: string | null
+        }
+        Update: {
+          action_type?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          report_id?: string
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_actions_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_actions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          assigned_to: string | null
+          audio_url: string | null
+          categories: string[] | null
+          created_at: string | null
+          date_reported: string | null
+          full_transcript: string | null
+          id: string
+          priority: string | null
+          reported_by: string | null
+          status: string | null
+          summary: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          vapi_call_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          audio_url?: string | null
+          categories?: string[] | null
+          created_at?: string | null
+          date_reported?: string | null
+          full_transcript?: string | null
+          id?: string
+          priority?: string | null
+          reported_by?: string | null
+          status?: string | null
+          summary?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          vapi_call_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          audio_url?: string | null
+          categories?: string[] | null
+          created_at?: string | null
+          date_reported?: string | null
+          full_transcript?: string | null
+          id?: string
+          priority?: string | null
+          reported_by?: string | null
+          status?: string | null
+          summary?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          vapi_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewards: {
+        Row: {
+          amount: number | null
+          approved_by: string | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          paid_at: string | null
+          report_id: string
+          status: string | null
+          whistleblower_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          approved_by?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          paid_at?: string | null
+          report_id: string
+          status?: string | null
+          whistleblower_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          approved_by?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          paid_at?: string | null
+          report_id?: string
+          status?: string | null
+          whistleblower_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewards_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rewards_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rewards_whistleblower_id_fkey"
+            columns: ["whistleblower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
